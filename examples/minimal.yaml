@@ -21,10 +21,9 @@ hooks:
       # Take it with the feature, so the folder can go too.
       - |
         rm -f NOTES.md
-
-repos:
-  api:
-    create:
-      # For this repo only, after the hooks.repo steps.
-      - |
-        npm ci
+  # For one repo, in its worktree, after the steps above.
+  repos:
+    api:
+      create:
+        - |
+          npm ci

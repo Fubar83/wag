@@ -75,8 +75,9 @@ Then create your config from one of the [examples](examples), for example
 - **All or nothing.** If one repo fails, everything that call created is rolled back. Removing checks every
   worktree before removing any.
 - **Hooks are bash command lines**, one per step, or the name of a script file next to your config. They run
-  per repo, in each worktree (`hooks.repo`), or once for the whole feature, in the feature folder
-  (`hooks.feature`) — for the note, ticket or container a feature has one of.
+  for every repo, in each worktree (`hooks.repo`), for one named repo (`hooks.repos.<name>`), or once for the
+  whole feature, in the feature folder (`hooks.feature`) — for the note, ticket or container a feature has
+  one of.
 - **Configured in your home folder**, in `~/.config/wag/config.yaml`. Nothing is needed in the repos.
   `projects` is where your main checkouts are; `features` names a folder inside it for the feature folders,
   so the two are not mixed together.

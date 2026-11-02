@@ -368,10 +368,11 @@ test("creating several repos is all or nothing: a bad repo stops before anything
 });
 
 test("creating several repos is all or nothing: a failing hook in the second repo rolls back the first", () => {
-  const s = setup(`repos:
-  web:
-    create:
-      - exit 4
+  const s = setup(`hooks:
+  repos:
+    web:
+      create:
+        - exit 4
 `, ["app", "web"]);
   const r = s.wag("feature-a", "app", "web");
   assert.equal(r.code, 1);
@@ -432,11 +433,11 @@ test("hook steps are bash command lines, run in the worktree, with the WAG_* var
   repo:
     create:
       - mkdir -p config && cp '${slash(join(home, "appsettings.Local.json"))}' config/appsettings.Local.json
-repos:
-  app:
-    create:
-      - cp "$WAG_MAIN/.env" .env
-      - echo "$WAG_FEATURE $WAG_REPO $WAG_BRANCH in $(basename "$PWD")" > ran.txt
+  repos:
+    app:
+      create:
+        - cp "$WAG_MAIN/.env" .env
+        - echo "$WAG_FEATURE $WAG_REPO $WAG_BRANCH in $(basename "$PWD")" > ran.txt
 `);
   writeFileSync(join(s.main(), ".env"), "SECRET=1\n"); // untracked file in the main checkout
 
@@ -497,10 +498,11 @@ test("a step written as a | block is the same step as a plain one", () => {
 });
 
 test("a hook step's output never reaches stdout", () => {
-  const s = setup(`repos:
-  app:
-    create:
-      - echo noise
+  const s = setup(`hooks:
+  repos:
+    app:
+      create:
+        - echo noise
 `);
   const r = s.wag("feature-a", "app");
   assert.equal(r.code, 0, r.err);
@@ -509,10 +511,11 @@ test("a hook step's output never reaches stdout", () => {
 });
 
 test("a failing create hook rolls everything back", () => {
-  const s = setup(`repos:
-  app:
-    create:
-      - exit 3
+  const s = setup(`hooks:
+  repos:
+    app:
+      create:
+        - exit 3
 `);
   const r = s.wag("feature-a", "app");
   assert.equal(r.code, 1);
@@ -559,10 +562,11 @@ test("a multi-line step is a bash script, and a step may be allowed to fail", ()
 });
 
 test("a failing remove hook stops the removal unless forced", () => {
-  const s = setup(`repos:
-  app:
-    remove:
-      - exit 2
+  const s = setup(`hooks:
+  repos:
+    app:
+      remove:
+        - exit 2
 `);
   const path = s.wag("feature-a", "app").out;
   const refused = s.wag("feature-a", "app", "--rm");
@@ -739,13 +743,17 @@ test("an unknown or failing start profile is an error, but the worktree stays", 
 test("config errors are reported with their location", () => {
   const cases = [
     // The old step syntax is gone, and the error says so rather than just "must be a string".
-    [`repos:\n  app:\n    create:\n      - run: npm ci\n`, /repos\.app\.create\[0\]: must be a command, as a string \(a mapping: "run:" and "copy:" are gone/],
+    [`hooks:\n  repos:\n    app:\n      create:\n        - run: npm ci\n`, /hooks\.repos\.app\.create\[0\]: must be a command, as a string \(a mapping: "run:" and "copy:" are gone/],
+    [`hooks:\n  repos:\n    app: npm ci\n`, /hooks\.repos\.app: must be a mapping/],
+    // A repo's hooks used to sit under repos.<name>, beside its path. The error says where they go now.
+    [`repos:\n  app:\n    create:\n      - npm ci\n`, /repos\.app\.create: a repo's hooks live with the other hooks now.*hooks\.repos\.app\.create/],
+    [`repos:\n  app:\n    nope: 1\n`, /repos\.app: unknown key "nope" \(allowed: path\)/],
     [`start:\n  tmux:\n    - copy: .env\n`, /start\.tmux\[0\]: must be a command, as a string/],
     [`hooks:\n  repo:\n    create: npm ci\n`, /hooks\.repo\.create: must be a list of commands/],
     [`hooks:\n  feature:\n    create:\n      - ''\n`, /hooks\.feature\.create\[0\]: must be a command, as a string/],
     // Steps used to sit straight under hooks, where they meant every repo. The error says where they go now.
-    [`hooks:\n  create:\n    - npm ci\n`, /hooks\.create: hooks now name their level.*hooks\.repo\.create \(for every repo\)/],
-    [`hooks:\n  worktree:\n    create:\n      - npm ci\n`, /hooks: unknown key "worktree" \(allowed: repo, feature\)/],
+    [`hooks:\n  create:\n    - npm ci\n`, /hooks\.create: hooks name their scope.*hooks\.repo\.create \(for every repo\)/],
+    [`hooks:\n  worktree:\n    create:\n      - npm ci\n`, /hooks: unknown key "worktree" \(allowed: repo, feature, repos\)/],
     [`autostart: [tmux]\n`, /autostart: must list start profiles defined under "start"/],
     [`colour: red\n`, /unknown key "colour"/],
   ];
@@ -776,7 +784,7 @@ function runScripts(cfg) {
   const steps = [
     ...(cfg.hooks?.repo?.create ?? []), ...(cfg.hooks?.repo?.remove ?? []),
     ...(cfg.hooks?.feature?.create ?? []), ...(cfg.hooks?.feature?.remove ?? []),
-    ...Object.values(cfg.repos ?? {}).flatMap((r) => [...(r?.create ?? []), ...(r?.remove ?? [])]),
+    ...Object.values(cfg.hooks?.repos ?? {}).flatMap((r) => [...(r?.create ?? []), ...(r?.remove ?? [])]),
     ...Object.values(cfg.start ?? {}).flat(),
   ];
   return steps.filter((s) => typeof s === "string").map((s) => s.replace(/\r/g, "").trimEnd());
