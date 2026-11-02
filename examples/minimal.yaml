@@ -1,28 +1,30 @@
 # wag config: a small starting point that works on Windows, Linux and macOS.
-# Copy to ~/.config/wag/config.yaml. Every step is a bash command line.
+# Every step is a bash command line, written after "- |" so no YAML quoting rules apply to it.
+# Copy to ~/.config/wag/config.yaml.
 
 projects: ~/projects
 
-# repo hooks run for every repo of the feature, in its worktree.
-# feature hooks run once for the whole feature, in the feature folder that holds the worktrees.
 hooks:
+  # For every repo of the feature, in its worktree.
   repo:
     create:
-      # Bring each repo's local .env (from its main checkout) into new worktrees, if it has one.
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+      # Its main checkout's .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+  # Once for the whole feature, in the feature folder that holds the worktrees.
   feature:
     create:
-      # A note beside the worktrees, written once, when the feature is created.
+      # One note beside the worktrees.
       - |
-        printf '# %s\n\n' "$WAG_BRANCH" > NOTES.md
-        printf -- '- %s\n' $WAG_REPOS >> NOTES.md
+        printf '# %s\n' "$WAG_BRANCH" > NOTES.md
     remove:
-      # Take it with the feature, so the feature folder can go too.
-      - rm -f NOTES.md
+      # Take it with the feature, so the folder can go too.
+      - |
+        rm -f NOTES.md
 
 repos:
   api:
     create:
-      # Local app settings kept in your home folder, never committed.
-      - cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
-      - npm ci
+      # For this repo only, after the hooks.repo steps.
+      - |
+        npm ci

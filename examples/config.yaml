@@ -12,33 +12,37 @@ projects: ~/projects
 # features: _features    # uncomment to collect feature folders in ~/projects/_features instead
 
 # Hooks come at two levels, each with create and remove. Each step is a bash command line; a step whose first
-# word is a file next to this config (setup.sh, say) is run as a script.
-#   repo:     once per repo of the feature, in its worktree. These steps run first, then the repo's own below.
-#   feature:  once for the whole feature, in the feature folder: on create when the feature is created (after
-#             every worktree is there), on remove before its last worktree goes.
-# create: if a step fails, the whole create is rolled back. remove: if a step fails, nothing is removed
-# (unless --force).
+# word is a file next to this config (jira-notes.sh, say) is run as a script.
+#   repo:     once per repo, in its worktree. These steps run first, then the repo's own under repos: below.
+#   feature:  once for the whole feature, in the feature folder: on create when the feature is created, with
+#             every worktree of it in place, and on remove before its last worktree goes.
+# A failing create step rolls the whole call back; a failing remove step stops the removal, unless --force.
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true   # the main checkout's local .env, if it has one
+      # The main checkout's local .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
   feature:
     create:
       # NOTES.md beside the worktrees when the branch ends in a Jira key, like feature/vfs-1234.
-      # Copy examples/jira-notes.sh to ~/.config/wag/jira-notes.sh for this one.
-      - jira-notes.sh https://yourcompany.atlassian.net
+      - |
+        jira-notes.sh https://yourcompany.atlassian.net
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
 
 repos:
   repo1:
     create:
-      - cp ~/secrets/repo1/appsettings.Local.json src/Api/appsettings.Local.json
-      - npm ci
+      # For this repo only.
+      - |
+        npm ci
   repo2:
     path: ~/work/repo2      # a main checkout outside the projects folder
     remove:
-      - docker compose down
+      - |
+        docker compose down
 
 # Start profiles run once per call for the whole feature.
 # Pick profiles per call with +name, e.g. `wag feature-a repo1 repo2 +tmux`.

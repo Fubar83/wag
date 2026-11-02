@@ -35,7 +35,8 @@ repos:                        # per repo, by folder name
 
 start:                        # start profiles, picked with +name
   hello:
-    - echo "Working on $WAG_FEATURE"
+    - |
+      echo "Working on $WAG_FEATURE"
 
 autostart: [hello]            # profiles to run when no +name is given
 ```
@@ -100,12 +101,15 @@ Hooks say which level they are on, and each level has a `create` and a `remove`:
 hooks:
   repo:
     create:
-      - npm ci
+      - |
+        npm ci
   feature:
     create:
-      - printf '# %s\n' "$WAG_BRANCH" > NOTES.md
+      - |
+        printf '# %s\n' "$WAG_BRANCH" > NOTES.md
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
 ```
 
 So the feature level is for the things a feature has one of: a note or a scratch file beside the worktrees,
@@ -121,15 +125,22 @@ create hook writes keeps the folder after the worktrees go unless a remove hook 
 
 ## Steps
 
-A step is one **bash** command line, written as a plain string. There is no key to name it and nothing else a
-step can be: copying a file in is `cp`, as it would be in any script.
+A step is one **bash** command line. There is no key to name it and nothing else a step can be: copying a
+file in is `cp`, as it would be in any script.
+
+Write every step after `- |`, the way all the examples here do. YAML then takes the lines exactly as they
+are, so none of its own rules can reach your shell: written plainly, `- echo foo: bar` is a mapping,
+`- #!/bin/sh` is a comment, and `- *.log` is an alias — all three are errors rather than commands. A block
+needs no quoting at all, and it is already the shape a step takes when it grows past one line.
 
 ```yaml
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true
-      - npm ci
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+      - |
+        npm ci
 ```
 
 A repo hook's steps run in the worktree, a feature hook's in the feature folder, and a start profile's in the
@@ -139,8 +150,8 @@ whole call back, a remove hook stops the removal. Use `|| true` for something al
 a `.env` that may not exist.
 
 The bash is the system one on Linux and macOS, and Git Bash on Windows, which wag finds for you (see
-[Windows](#windows)). One shell everywhere means one way to write a step — `$WAG_REPO`, not `%WAG_REPO%` —
-and a multi-line step is an ordinary bash script:
+[Windows](#windows)). One shell everywhere means one way to write a step — `$WAG_FEATURE`, not `%WAG_FEATURE%` —
+and a step of several lines is an ordinary bash script:
 
 ```yaml
 hooks:
@@ -161,10 +172,13 @@ arguments after it. So `~/.config/wag/setup.sh` is reached as `setup.sh`:
 hooks:
   repo:
     create:
-      - setup.sh --verbose
+      - |
+        setup.sh --verbose
 ```
 
-It needs no execute bit and no shebang, because wag runs `bash <the file>`. The first word has to be a bare
+It needs no execute bit and no shebang, because wag runs `bash <the file>`.
+[examples/jira-notes.sh](../examples/jira-notes.sh) is one of these, ready to copy next to your config.
+The first word has to be a bare
 name: anything with a slash in it is a path like any other, taken from the folder the step runs in. wag says
 which steps it took this way, so a step that is meant to be a command but happens to share a name with a file
 next to your config is visible rather than silent:
@@ -196,85 +210,56 @@ Feature hooks:
 
 There is no `WAG_REPO` or `WAG_WORKTREE` at this level, not even for a feature with one repo: at the feature
 level the repos are a list, so a step written around a single one would work on one feature and quietly do
-nothing on the next. Loop over `WAG_REPOS`, or put the step under `hooks.repo`, where one repo is the subject.
-
-```yaml
-hooks:
-  feature:
-    create:
-      - |
-        printf '%s\n' "$WAG_WORKTREES" | while read -r wt; do
-          echo "$(basename "$wt"): $(git -C "$wt" rev-parse --short HEAD)" >> HEADS.txt
-        done
-```
+nothing on the next. Put such a step under `hooks.repo`, where one repo is the subject, or walk the list:
+`printf '%s\n' "$WAG_WORKTREES" | while read -r wt; do git -C "$wt" status -sb; done`.
 
 Start profiles get a different set, listed in [agents.md](agents.md).
 
 ### Examples
 
-Local secrets and settings, kept in your home folder. Nothing is excluded from git for you, so a file you
-bring in shows up as untracked: add it to the repo's `.gitignore`, or to its local exclude list, if that
-matters to you.
+One hook of each level, which is as much as most configs need: the repo hook brings each worktree's local
+files in and installs its dependencies, the feature hook writes the one file the feature has, and
+`repos.<name>` is for steps that belong to a single repo.
 
 ```yaml
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true   # each repo's own local .env, if it has one
-repos:
-  api:
-    create:
-      - cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
-      - cp -r ~/secrets/api/certs certs                # a whole folder
-      - echo /.env >> "$(git rev-parse --git-common-dir)/info/exclude"
-```
-
-Install dependencies, and clean up containers when a worktree goes away:
-
-```yaml
-repos:
-  web:
-    create:
-      - npm ci
-  api:
-    create:
-      - dotnet restore
-    remove:
-      - docker compose down
-```
-
-One file for the whole feature, written when it is created. [examples/jira-notes.sh](../examples/jira-notes.sh),
-kept next to your config, is this: when the branch's last segment looks like a ticket key — `feature/vfs-1234`,
-`bugfix/VFS-1234`, `VFS-1234` — it writes a `NOTES.md` beside the worktrees with a link to the ticket and the
-repos the feature spans. Any other branch name is left alone, and notes you have already written in are never
-overwritten.
-
-```yaml
-hooks:
+      # Each repo's own local .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+      - |
+        npm ci
   feature:
     create:
-      - jira-notes.sh https://yourcompany.atlassian.net
+      - |
+        jira-notes.sh https://yourcompany.atlassian.net
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
+repos:
+  api:
+    create:
+      - |
+        cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
+    remove:
+      - |
+        docker compose down
 ```
+
+Nothing is excluded from git for you, so a file a repo hook brings into a worktree shows up as untracked: add
+it to the repo's `.gitignore`, or to its local exclude list, if that matters to you. A file a feature hook
+writes sits beside the worktrees, outside every repo, so no `git status` ever sees it.
+
+[examples/jira-notes.sh](../examples/jira-notes.sh) is the feature hook above. When the branch's last segment
+looks like a ticket key — `feature/vfs-1234`, `bugfix/VFS-1234`, `VFS-1234` — it writes a `NOTES.md` beside the
+worktrees with a link to the ticket and the repos the feature spans. Any other branch name is left alone, and
+notes you have already written in are never overwritten.
 
 ```text
 ~/projects/feature-vfs-1234/NOTES.md      # VFS-1234, the link to it, and the repos below
 ~/projects/feature-vfs-1234/api/
 ~/projects/feature-vfs-1234/web/
-```
-
-The same thing inline, without a script file:
-
-```yaml
-hooks:
-  feature:
-    create:
-      - |
-        key=${WAG_BRANCH##*/}
-        if [[ $key =~ ^[A-Za-z][A-Za-z0-9]+-[0-9]+$ ]]; then
-          printf '%s/browse/%s\n' "https://yourcompany.atlassian.net" "$key" > TICKET.txt
-        fi
 ```
 
 ## Start profiles
@@ -284,7 +269,7 @@ Start profiles open your tools. Unlike hooks, they:
 - run **once per call for the whole feature**, not once per repo;
 - run **every time** you call `wag <feature> <repo>...`, also when the worktrees already exist;
 - run in the **printed path**: the worktree for one repo, the feature folder for several;
-- only have `run` steps;
+- have **no create or remove**: a profile is one list of steps, named by you and picked with `+name`;
 - never remove anything when they fail: wag reports the error and the worktrees stay.
 
 | Variable | Value |
@@ -302,9 +287,12 @@ Without `+name`, the profiles in `autostart` run. `--no-start` runs none.
 ```yaml
 start:
   code:
-    - code "$WAG_FEATURE_DIR"     # open the feature folder in VS Code
+    # Open the feature folder in VS Code.
+    - |
+      code "$WAG_FEATURE_DIR"
   notes:
-    - echo "Notes for $WAG_FEATURE" >> ~/notes/features.md
+    - |
+      echo "Notes for $WAG_FEATURE" >> ~/notes/features.md
 autostart: [code]
 ```
 

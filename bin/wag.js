@@ -112,6 +112,11 @@ function onlyKeys(obj, allowed, at) {
  * A step is a command, written as a plain string: a bash command line, or the name of a script file next
  * to the config file. There is nothing to name it, so there is no "run:" and no copy step either: copying
  * a file in is `cp`, like it would be in any script.
+ *
+ * Trailing whitespace goes, which is what makes the YAML style its author's business. A block scalar
+ * ("- |") keeps a newline at the end, so without this a one-line block would count as several lines: it
+ * would never be taken as the name of a script file, and would be logged with the "…" that says there is
+ * more of it. Written either way, a step is now the same step.
  */
 function parseSteps(list, at) {
   if (list == null) return [];
@@ -121,7 +126,7 @@ function parseSteps(list, at) {
       const was = isObject(s) ? ` (a mapping: "run:" and "copy:" are gone, write the command on its own)` : "";
       fail(`config ${at}[${i}]: must be a command, as a string${was}`);
     }
-    return s;
+    return s.trimEnd();
   });
 }
 
@@ -620,8 +625,12 @@ function removeAll(cfg, feature, repos, force) {
     info(`Removed ${t.wt}. Branch ${feature} in ${t.repo} was kept.`);
   }
   pruneFeatureDir(cfg, feature);
+  // Only worth saying when nothing of the feature is left and the folder still stayed: what kept it is
+  // something written into it, a file a feature hook made. Other worktrees keeping it is no news.
   const fdir = featureDir(cfg, feature);
-  if (isDir(fdir)) info(`${fdir} was kept: it still holds files that are not worktrees.`);
+  if (isDir(fdir) && !reposIn(cfg, feature).length) {
+    info(`${fdir} was kept: it still holds files that are not worktrees.`);
+  }
 }
 
 /** Worktrees of one feature, or of all features when feature is undefined. */
