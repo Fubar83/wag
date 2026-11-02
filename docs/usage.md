@@ -140,13 +140,29 @@ wag: uncommitted changes in:
   ~/projects/feature-a/web
 Commit them, or add --force to discard them. Nothing was removed.
 
-$ wag feature-a web --rm
+$ wag feature-a api --rm
+repo remove hooks for feature-a/api:
+  $ echo "closing $WAG_REPO" >&2
+closing api
+Removed ~/projects/feature-a/api. Branch feature-a in api was kept.
+
+$ wag feature-a --rm --force
+feature remove hooks for feature-a:
+  $ rm -f NOTES.md
+repo remove hooks for feature-a/web:
+  $ echo "closing $WAG_REPO" >&2
+closing web
 Removed ~/projects/feature-a/web. Branch feature-a in web was kept.
 ```
 
 wag checks every worktree before removing any of them, so a refusal never leaves a feature half removed.
 The branch is always kept, because it may hold commits you have not pushed. Delete it yourself with
 `git branch -d feature-a` in the main checkout once it is merged.
+
+Taking one repo out of a feature runs that repo's remove hooks only. The last of them is the feature itself
+going away, so `hooks.feature.remove` runs first, while every worktree is still in place
+([hooks](configuration.md#hooks)). The feature folder is dropped once it is empty, so anything a feature hook
+left beside the worktrees keeps it, and wag says when it has.
 
 ## Keeping up with main
 

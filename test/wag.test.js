@@ -594,9 +594,11 @@ test("feature remove hooks run once, before the last worktree goes", () => {
   const removed = join(s.projects, "removed.txt");
   s.wag("feature-a", "app", "web");
 
-  // One repo of two is not the feature going away.
-  assert.equal(s.wag("feature-a", "web", "--rm").code, 0);
+  // One repo of two is not the feature going away, and the folder the other worktree keeps is not news.
+  const one = s.wag("feature-a", "web", "--rm");
+  assert.equal(one.code, 0, one.err);
   assert.equal(existsSync(removed), false);
+  assert.doesNotMatch(one.err, /holds files that are not worktrees/);
 
   // The rest of it is, and the hook still sees the worktrees. WAG_REPO is never set at this level, not even
   // here, where the feature is down to one repo: the repos are a list, however many of them there are.
@@ -641,9 +643,11 @@ test("examples/jira-notes.sh writes notes for a branch that ends in a Jira key",
   assert.match(notes, /feature\/vfs-1234/);
   assert.match(notes, /app web/);
 
-  // Notes already written in are never overwritten.
+  // Notes already written in are never overwritten, and they keep the feature folder, which wag says.
   writeFileSync(join(s.projects, "feature-vfs-1234", "NOTES.md"), "mine\n");
-  assert.equal(s.wag("feature/vfs-1234", "--rm").code, 0);
+  const gone = s.wag("feature/vfs-1234", "--rm");
+  assert.equal(gone.code, 0, gone.err);
+  assert.match(gone.err, /was kept: it still holds files that are not worktrees/);
   assert.equal(s.wag("feature/vfs-1234", "app").code, 0);
   assert.equal(readFileSync(join(s.projects, "feature-vfs-1234", "NOTES.md"), "utf8"), "mine\n");
 

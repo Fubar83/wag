@@ -620,8 +620,12 @@ function removeAll(cfg, feature, repos, force) {
     info(`Removed ${t.wt}. Branch ${feature} in ${t.repo} was kept.`);
   }
   pruneFeatureDir(cfg, feature);
+  // Only worth saying when nothing of the feature is left and the folder still stayed: what kept it is
+  // something written into it, a file a feature hook made. Other worktrees keeping it is no news.
   const fdir = featureDir(cfg, feature);
-  if (isDir(fdir)) info(`${fdir} was kept: it still holds files that are not worktrees.`);
+  if (isDir(fdir) && !reposIn(cfg, feature).length) {
+    info(`${fdir} was kept: it still holds files that are not worktrees.`);
+  }
 }
 
 /** Worktrees of one feature, or of all features when feature is undefined. */
