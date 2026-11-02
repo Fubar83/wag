@@ -11,11 +11,12 @@
 projects: ~/projects
 # features: _features    # uncomment to collect feature folders in ~/projects/_features instead
 
-# Hooks come at two levels, each with create and remove. Each step is a bash command line; a step whose first
-# word is a file next to this config (jira-notes.sh, say) is run as a script.
-#   repo:     once per repo, in its worktree. These steps run first, then the repo's own under repos: below.
-#   feature:  once for the whole feature, in the feature folder: on create when the feature is created, with
-#             every worktree of it in place, and on remove before its last worktree goes.
+# Every hook lives here, each scope with its own create and remove. Each step is a bash command line; a step
+# whose first word is a file next to this config (jira-notes.sh, say) is run as a script.
+#   repo:          once per repo, in its worktree.
+#   feature:       once for the whole feature, in the feature folder: on create when the feature is created,
+#                  with every worktree of it in place, and on remove before its last worktree goes.
+#   repos.<name>:  for that repo alone, in its worktree, after the repo: steps.
 # A failing create step rolls the whole call back; a failing remove step stops the removal, unless --force.
 hooks:
   repo:
@@ -31,18 +32,21 @@ hooks:
     remove:
       - |
         rm -f NOTES.md
+  repos:
+    repo1:
+      create:
+        # For this repo only, after the hooks.repo steps.
+        - |
+          npm ci
+    repo2:
+      remove:
+        - |
+          docker compose down
 
+# Where a repo is, for a main checkout that does not sit under projects. Hooks all live above.
 repos:
-  repo1:
-    create:
-      # For this repo only.
-      - |
-        npm ci
   repo2:
-    path: ~/work/repo2      # a main checkout outside the projects folder
-    remove:
-      - |
-        docker compose down
+    path: ~/work/repo2
 
 # Start profiles run once per call for the whole feature.
 # Pick profiles per call with +name, e.g. `wag feature-a repo1 repo2 +tmux`.

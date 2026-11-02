@@ -21,9 +21,9 @@
 //     clean. That also frees the feature's branch when the main checkout is the thing holding it.
 //   - A hook or start step is one bash command line, written as a plain string. A step whose first word is a
 //     file next to the config file is run as that script with bash, arguments and all.
-//   - Hooks say which level they are on: hooks.repo (and the same create/remove keys under repos.<name>) runs
-//     for one worktree at a time, in it, while hooks.feature runs once for the whole feature, in the feature
-//     folder, when the feature itself appears and before it goes away.
+//   - Hooks say which scope they are on. hooks.repo runs for one worktree at a time, in it, and so does
+//     hooks.repos.<name>, for that repo alone, after it. hooks.feature runs once for the whole feature, in
+//     the feature folder, when the feature itself appears and before it goes away.
 //   - Nothing is guessed. A missing origin, a failed fetch, an invalid name, a branch checked out elsewhere,
 //     a local branch that diverged from origin, or a bad config all stop with an error.
 //   - Creating is all or nothing: if one repo (or one of its create hooks) fails, every worktree and branch
@@ -139,20 +139,27 @@ function parseEvents(h, at) {
 }
 
 /**
- * Two levels, each with its own create and remove: "repo" for every repo of the feature, one worktree at a
- * time, and "feature" for the whole feature, once. The steps used to sit directly under hooks, where they were
- * the per-repo ones, so that spelling is an error that names both levels rather than just an unknown key.
+ * Three scopes, each with its own create and remove: "repo" for every repo of the feature, one worktree at a
+ * time; "feature" for the whole feature, once; and "repos.<name>" for one named repo, after the steps that
+ * every repo runs. Every hook there is lives under hooks, which leaves the top-level "repos" for saying
+ * where a repo is and nothing else. Steps written straight under hooks, or under repos.<name>, are the two
+ * older spellings: both are errors that name the key to use now.
  */
 function parseHooks(h, at) {
-  if (h == null) return { repo: parseEvents(null, at), feature: parseEvents(null, at) };
+  if (h == null) return { repo: parseEvents(null, at), feature: parseEvents(null, at), repos: {} };
   if (!isObject(h)) fail(`config ${at}: must be a mapping`);
   for (const event of ["create", "remove"]) {
     if (h[event] !== undefined) {
-      fail(`config ${at}.${event}: hooks now name their level, so move these steps to ${at}.repo.${event} (for every repo) or ${at}.feature.${event} (once for the whole feature)`);
+      fail(`config ${at}.${event}: hooks name their scope, so move these steps to ${at}.repo.${event} (for every repo) or ${at}.feature.${event} (once for the whole feature)`);
     }
   }
-  onlyKeys(h, ["repo", "feature"], at);
-  return { repo: parseEvents(h.repo, `${at}.repo`), feature: parseEvents(h.feature, `${at}.feature`) };
+  onlyKeys(h, ["repo", "feature", "repos"], at);
+  const repos = {};
+  if (h.repos != null) {
+    if (!isObject(h.repos)) fail(`config ${at}.repos: must be a mapping of repo name to its create and remove steps`);
+    for (const [name, r] of Object.entries(h.repos)) repos[name] = parseEvents(r, `${at}.repos.${name}`);
+  }
+  return { repo: parseEvents(h.repo, `${at}.repo`), feature: parseEvents(h.feature, `${at}.feature`), repos };
 }
 
 /** Loads and validates the config. No file means defaults: ~/projects, no hooks, no start profiles. */
@@ -189,17 +196,18 @@ function loadConfig(file = configFile()) {
     for (const [name, r] of Object.entries(raw.repos)) {
       const at = `repos.${name}`;
       if (r == null) {
-        repos[name] = { path: undefined, create: [], remove: [] };
+        repos[name] = { path: undefined };
         continue;
       }
       if (!isObject(r)) fail(`config ${at}: must be a mapping`);
-      onlyKeys(r, ["path", "create", "remove"], at);
+      for (const event of ["create", "remove"]) {
+        if (r[event] !== undefined) {
+          fail(`config ${at}.${event}: a repo's hooks live with the other hooks now, so move these steps to hooks.repos.${name}.${event}`);
+        }
+      }
+      onlyKeys(r, ["path"], at);
       if (r.path !== undefined && typeof r.path !== "string") fail(`config ${at}.path: must be a path`);
-      repos[name] = {
-        path: r.path ? resolve(expandHome(r.path)) : undefined,
-        create: parseSteps(r.create, `${at}.create`),
-        remove: parseSteps(r.remove, `${at}.remove`),
-      };
+      repos[name] = { path: r.path ? resolve(expandHome(r.path)) : undefined };
     }
   }
   const projects = resolve(expandHome(raw.projects ?? "~/projects"));
@@ -429,7 +437,7 @@ function runCommand(cfg, command, cwd, env) {
 
 /** Repo hooks run for one worktree, in it: the steps for every repo first, then that repo's own. */
 function runRepoHooks(cfg, event, ctx) {
-  const steps = [...cfg.hooks.repo[event], ...(cfg.repos[ctx.repo]?.[event] ?? [])];
+  const steps = [...cfg.hooks.repo[event], ...(cfg.hooks.repos[ctx.repo]?.[event] ?? [])];
   if (!steps.length) return;
   info(`repo ${event} hooks for ${folderOf(ctx.feature)}/${ctx.repo}:`);
   const env = { WAG_FEATURE: ctx.feature, WAG_BRANCH: ctx.feature, WAG_REPO: ctx.repo, WAG_WORKTREE: ctx.wt, WAG_MAIN: ctx.main };

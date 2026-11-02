@@ -26,12 +26,14 @@ hooks:
   feature:                    # once for the whole feature, in the feature folder
     create: []                # when the feature is created, with every worktree of it in place
     remove: []                # before the feature's last worktree goes
+  repos:                      # for one repo, by folder name, after the hooks.repo steps
+    api:
+      create: []
+      remove: []
 
-repos:                        # per repo, by folder name
+repos:                        # where a repo is, when it is not under projects
   api:
-    path: ~/work/api          # optional: main checkout outside projects
-    create: []                # this repo's own hooks, run after the hooks.repo ones
-    remove: []
+    path: ~/work/api
 
 start:                        # start profiles, picked with +name
   hello:
@@ -85,17 +87,21 @@ itself a git repository cannot hold feature folders, and wag says so rather than
 
 ## Hooks
 
-Hooks say which level they are on, and each level has a `create` and a `remove`:
+Every hook lives under `hooks`, which says which scope it is on, and each scope has a `create` and a `remove`:
 
-| Level | Runs | Where | Steps from |
-|---|---|---|---|
-| `hooks.repo` | once per repo of the feature | that repo's worktree | `hooks.repo`, then `repos.<name>` |
-| `hooks.feature` | once for the whole feature | the feature folder | `hooks.feature` |
+| Scope | Runs | Where |
+|---|---|---|
+| `hooks.repo` | once per repo of the feature | that repo's worktree |
+| `hooks.repos.<name>` | for that repo alone, after the `hooks.repo` steps | its worktree |
+| `hooks.feature` | once for the whole feature | the feature folder |
 
 - **repo create** runs right after a worktree is made; **repo remove** before it is removed.
 - **feature create** runs when the feature itself is created, once all of its worktrees are there and their
   repo hooks have run. **feature remove** runs before the feature's last worktrees go, while they are all
   still in place.
+
+Steps live under `hooks` and nowhere else, so the top-level `repos` is only about where a repo is: its
+`path`. A repo can appear in both, `hooks.repos.api` for what it runs and `repos.api` for where it is.
 
 ```yaml
 hooks:
@@ -217,9 +223,9 @@ Start profiles get a different set, listed in [agents.md](agents.md).
 
 ### Examples
 
-One hook of each level, which is as much as most configs need: the repo hook brings each worktree's local
+One hook of each scope, which is as much as most configs need: the repo hook brings each worktree's local
 files in and installs its dependencies, the feature hook writes the one file the feature has, and
-`repos.<name>` is for steps that belong to a single repo.
+`hooks.repos.<name>` is for steps that belong to a single repo.
 
 ```yaml
 hooks:
@@ -237,14 +243,14 @@ hooks:
     remove:
       - |
         rm -f NOTES.md
-repos:
-  api:
-    create:
-      - |
-        cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
-    remove:
-      - |
-        docker compose down
+  repos:
+    api:
+      create:
+        - |
+          cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
+      remove:
+        - |
+          docker compose down
 ```
 
 Nothing is excluded from git for you, so a file a repo hook brings into a worktree shows up as untracked: add
