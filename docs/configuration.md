@@ -35,7 +35,8 @@ repos:                        # per repo, by folder name
 
 start:                        # start profiles, picked with +name
   hello:
-    - echo "Working on $WAG_FEATURE"
+    - |
+      echo "Working on $WAG_FEATURE"
 
 autostart: [hello]            # profiles to run when no +name is given
 ```
@@ -100,12 +101,15 @@ Hooks say which level they are on, and each level has a `create` and a `remove`:
 hooks:
   repo:
     create:
-      - npm ci
+      - |
+        npm ci
   feature:
     create:
-      - printf '# %s\n' "$WAG_BRANCH" > NOTES.md
+      - |
+        printf '# %s\n' "$WAG_BRANCH" > NOTES.md
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
 ```
 
 So the feature level is for the things a feature has one of: a note or a scratch file beside the worktrees,
@@ -121,15 +125,22 @@ create hook writes keeps the folder after the worktrees go unless a remove hook 
 
 ## Steps
 
-A step is one **bash** command line, written as a plain string. There is no key to name it and nothing else a
-step can be: copying a file in is `cp`, as it would be in any script.
+A step is one **bash** command line. There is no key to name it and nothing else a step can be: copying a
+file in is `cp`, as it would be in any script.
+
+Write every step after `- |`, the way all the examples here do. YAML then takes the lines exactly as they
+are, so none of its own rules can reach your shell: written plainly, `- echo foo: bar` is a mapping,
+`- #!/bin/sh` is a comment, and `- *.log` is an alias — all three are errors rather than commands. A block
+needs no quoting at all, and it is already the shape a step takes when it grows past one line.
 
 ```yaml
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true
-      - npm ci
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+      - |
+        npm ci
 ```
 
 A repo hook's steps run in the worktree, a feature hook's in the feature folder, and a start profile's in the
@@ -140,7 +151,7 @@ a `.env` that may not exist.
 
 The bash is the system one on Linux and macOS, and Git Bash on Windows, which wag finds for you (see
 [Windows](#windows)). One shell everywhere means one way to write a step — `$WAG_FEATURE`, not `%WAG_FEATURE%` —
-and a multi-line step is an ordinary bash script:
+and a step of several lines is an ordinary bash script:
 
 ```yaml
 hooks:
@@ -161,7 +172,8 @@ arguments after it. So `~/.config/wag/setup.sh` is reached as `setup.sh`:
 hooks:
   repo:
     create:
-      - setup.sh --verbose
+      - |
+        setup.sh --verbose
 ```
 
 It needs no execute bit and no shebang, because wag runs `bash <the file>`.
@@ -213,19 +225,26 @@ files in and installs its dependencies, the feature hook writes the one file the
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true   # each repo's own local .env, if it has one
-      - npm ci
+      # Each repo's own local .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
+      - |
+        npm ci
   feature:
     create:
-      - jira-notes.sh https://yourcompany.atlassian.net
+      - |
+        jira-notes.sh https://yourcompany.atlassian.net
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
 repos:
   api:
     create:
-      - cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
+      - |
+        cp ~/secrets/api/appsettings.Development.json src/Api/appsettings.Development.json
     remove:
-      - docker compose down
+      - |
+        docker compose down
 ```
 
 Nothing is excluded from git for you, so a file a repo hook brings into a worktree shows up as untracked: add
@@ -250,7 +269,7 @@ Start profiles open your tools. Unlike hooks, they:
 - run **once per call for the whole feature**, not once per repo;
 - run **every time** you call `wag <feature> <repo>...`, also when the worktrees already exist;
 - run in the **printed path**: the worktree for one repo, the feature folder for several;
-- only have `run` steps;
+- have **no create or remove**: a profile is one list of steps, named by you and picked with `+name`;
 - never remove anything when they fail: wag reports the error and the worktrees stay.
 
 | Variable | Value |
@@ -268,9 +287,12 @@ Without `+name`, the profiles in `autostart` run. `--no-start` runs none.
 ```yaml
 start:
   code:
-    - code "$WAG_FEATURE_DIR"     # open the feature folder in VS Code
+    # Open the feature folder in VS Code.
+    - |
+      code "$WAG_FEATURE_DIR"
   notes:
-    - echo "Notes for $WAG_FEATURE" >> ~/notes/features.md
+    - |
+      echo "Notes for $WAG_FEATURE" >> ~/notes/features.md
 autostart: [code]
 ```
 

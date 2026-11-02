@@ -20,22 +20,29 @@ projects: ~/projects
 hooks:
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true   # the main checkout's local .env, if it has one
+      # The main checkout's local .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
   feature:
     create:
       # NOTES.md beside the worktrees when the branch ends in a Jira key, like feature/vfs-1234.
-      - jira-notes.sh https://yourcompany.atlassian.net
+      - |
+        jira-notes.sh https://yourcompany.atlassian.net
     remove:
-      - rm -f NOTES.md
+      - |
+        rm -f NOTES.md
 
 repos:
   repo1:
     create:
-      - npm ci              # for this repo only
+      # For this repo only.
+      - |
+        npm ci
   repo2:
     path: ~/work/repo2      # a main checkout outside the projects folder
     remove:
-      - docker compose down
+      - |
+        docker compose down
 
 # Start profiles run once per call for the whole feature.
 # Pick profiles per call with +name, e.g. `wag feature-a repo1 repo2 +tmux`.

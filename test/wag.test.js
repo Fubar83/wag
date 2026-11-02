@@ -474,6 +474,28 @@ test("a step whose first word is a file next to the config is run as a script, w
   assert.doesNotMatch(ok.err, /script next to/);
 });
 
+test("a step written as a | block is the same step as a plain one", () => {
+  const s = setup(`hooks:
+  repo:
+    create:
+      - |
+        setup.sh --verbose
+  feature:
+    create:
+      - |
+        printf '%s\\n' "$WAG_BRANCH" > NOTES.md
+`);
+  writeFileSync(join(dirname(s.configFile), "setup.sh"), 'echo "args: $*" > from-script.txt\n');
+  const r = s.wag("feature-a", "app");
+  assert.equal(r.code, 0, r.err);
+  // A block scalar keeps a newline at the end, which must not turn a one-line step into a several-line one:
+  // it is still the name of a script file, and the log line has no "…" saying there is more of it.
+  assert.equal(readFileSync(join(r.out, "from-script.txt"), "utf8").trim(), "args: --verbose");
+  assert.match(r.err, /\$ setup\.sh --verbose {3}\(script next to config\.yaml\)/);
+  assert.doesNotMatch(r.err, /…/);
+  assert.equal(readFileSync(join(s.projects, "feature-a", "NOTES.md"), "utf8"), "feature-a\n");
+});
+
 test("a hook step's output never reaches stdout", () => {
   const s = setup(`repos:
   app:

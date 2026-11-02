@@ -1,5 +1,6 @@
 # wag config: a small starting point that works on Windows, Linux and macOS.
-# Copy to ~/.config/wag/config.yaml. Every step is a bash command line.
+# Every step is a bash command line, written after "- |" so no YAML quoting rules apply to it.
+# Copy to ~/.config/wag/config.yaml.
 
 projects: ~/projects
 
@@ -7,15 +8,23 @@ hooks:
   # For every repo of the feature, in its worktree.
   repo:
     create:
-      - cp "$WAG_MAIN/.env" .env 2>/dev/null || true   # its main checkout's .env, if it has one
+      # Its main checkout's .env, if it has one.
+      - |
+        cp "$WAG_MAIN/.env" .env 2>/dev/null || true
   # Once for the whole feature, in the feature folder that holds the worktrees.
   feature:
     create:
-      - printf '# %s\n' "$WAG_BRANCH" > NOTES.md       # one note beside the worktrees
+      # One note beside the worktrees.
+      - |
+        printf '# %s\n' "$WAG_BRANCH" > NOTES.md
     remove:
-      - rm -f NOTES.md                                 # take it with the feature
+      # Take it with the feature, so the folder can go too.
+      - |
+        rm -f NOTES.md
 
 repos:
   api:
     create:
-      - npm ci                                         # for this repo only, after the hooks.repo steps
+      # For this repo only, after the hooks.repo steps.
+      - |
+        npm ci

@@ -23,7 +23,8 @@ Windows Terminal; use whatever terminal you have):
 ```yaml
 start:
   agent:
-    - wt -w 0 nt -d "$WAG_FEATURE_DIR" claude
+    - |
+      wt -w 0 nt -d "$WAG_FEATURE_DIR" claude
 autostart: [agent]
 ```
 
